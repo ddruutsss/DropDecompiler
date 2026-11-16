@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:" />
+  <title>DropDecompiler</title>
+  <link id="hljsDark" rel="stylesheet" href="../node_modules/@highlightjs/cdn-assets/styles/github-dark-dimmed.min.css" />
+  <link id="hljsLight" rel="stylesheet" href="../node_modules/@highlightjs/cdn-assets/styles/github.min.css" disabled />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header id="titlebar">
+    <img class="tb-logo" src="../assets/logo.svg" alt="" />
+    <span class="tb-title">DropDecompiler</span>
+    <span id="tbContext" class="tb-context"></span>
+  </header>
+
+  <div id="app">
+    <aside id="sidebar">
+      <div class="side-head">
+        <span class="side-title">Files</span>
+        <span class="side-actions">
+          <button id="openBtn" class="tool" title="Open files to decompile (Ctrl+O)" data-icon="plus">Open…</button>
+          <button id="settingsBtn" class="tool icon-only" title="Settings (Ctrl+,)" data-icon="gear" aria-label="Settings"></button>
+        </span>
+      </div>
+
+      <div id="dropzone" tabindex="0" role="button" aria-label="Drop files here or press Enter to browse">
+        <span class="dz-icon" data-icon="upload"></span>
+        <div class="dz-text">
+          <div class="dz-title">Drop files to decompile</div>
+          <div class="dz-sub">EXE, DLL, JAR, APK, IPA, LUA… any file</div>
+        </div>
+      </div>
+
+      <form id="urlForm" class="url-form" autocomplete="off">
+        <span data-icon="globe"></span>
+        <input id="urlInput" type="text" placeholder="Website link: https://…" spellcheck="false" />
+        <select id="urlPages" title="How many pages of the site to visit">
+          <option value="1">1 page</option>
+          <option value="5">5 pages</option>
+          <option value="20">20 pages</option>
+          <option value="100">100 pages</option>
+          <option value="500">500 pages</option>
+        </select>
+        <button class="tool primary" type="submit" title="Download and decompile this website">Go</button>
+      </form>
+
+      <div id="jobs"><div class="jobs-empty">No files yet</div></div>
+
+      <div class="side-foot">
+        <button id="clearDone" class="tool subtle">Clear finished</button>
+      </div>
+    </aside>
+
+    <main id="viewer">
+      <section id="viewerEmpty" class="empty">
+        <img class="empty-logo" src="../assets/logo.svg" alt="" />
+        <h1>Decompile a program</h1>
+        <p>Drop a file anywhere in this window, or <button id="emptyBrowse" class="link">browse for one</button>.
+          The right decompiler is picked automatically and downloaded the first time it is needed.</p>
+        <table class="formats">
+          <thead><tr><th>Input</th><th>Decompiler</th><th>You get</th></tr></thead>
+          <tbody>
+            <tr><td><span class="tag dotnet">.NET</span>EXE, DLL, NuGet, single-file apps</td><td>ILSpy</td><td>Visual Studio solution, test-built, GUI included</td></tr>
+            <tr><td><span class="tag java">Java</span>JAR, WAR, CLASS</td><td>Vineflower</td><td>Java source and a rebuilt, working JAR</td></tr>
+            <tr><td><span class="tag android">Android</span>APK, AAB, AAR, DEX</td><td>JADX</td><td>Android Studio project with resources</td></tr>
+            <tr><td><span class="tag ios">iOS</span>IPA</td><td>Built in + Ghidra</td><td>Objective-C headers, Swift interfaces, named pseudo-C, decoded resources and a security report</td></tr>
+            <tr><td><span class="tag native">Native</span>EXE, DLL, SO (C, C++, Go, Rust)</td><td>Ghidra</td><td>C pseudo-code; dialogs, menus and icons as a resource script</td></tr>
+            <tr><td><span class="tag lua">Lua</span>LUA, LUAC, LuaJIT</td><td>unluac, LuaJIT Decompiler</td><td>Lua source from compiled bytecode (5.0–5.4, LuaJIT)</td></tr>
+            <tr><td><span class="tag manifest">Manifest</span>.manifest</td><td>Built in</td><td>Windows manifests decoded and explained; Steam depot manifests as a file list</td></tr>
+            <tr><td><span class="tag website">Web</span>A website link</td><td>Hidden browser</td><td>Every page and asset, an offline copy, and the original source code when the site publishes source maps</td></tr>
+            <tr><td><span class="tag generic">Any</span>Everything else</td><td>File analyser</td><td>Type, text, strings, hex and archive contents, ready for the AI</td></tr>
+          </tbody>
+        </table>
+        <p class="ai-hint"><span data-icon="spark"></span><span>Then open the <b>AI assistant</b>: it reads the decompiled output and rebuilds it as clean, commented source code.</span></p>
+        <p class="hint"><kbd>Ctrl</kbd>+<kbd>O</kbd> open files &nbsp;·&nbsp; <kbd>Ctrl</kbd>+<kbd>V</kbd> paste a website link &nbsp;·&nbsp; <kbd>Ctrl</kbd>+<kbd>P</kbd> go to file</p>
+      </section>
+
+      <section id="viewerMain" class="hidden">
+        <div class="toolbar">
+          <div class="tb-left">
+            <span id="vBadge" class="tag"></span>
+            <span id="vName" class="v-name"></span>
+            <span id="vCount" class="v-meta"></span>
+          </div>
+          <div class="tb-right">
+            <button id="vBuild" class="status-chip hidden" title="Open the build report"></button>
+            <span class="sep"></span>
+            <button id="vRebuild" class="tool hidden" data-icon="refresh" title="Build again after editing the code">Rebuild</button>
+            <button id="vProgram" class="tool hidden" data-icon="box" title="Show the rebuilt program in Explorer">Rebuilt program</button>
+            <button id="vOpen" class="tool" data-icon="folder" title="Open the output folder">Open folder</button>
+            <button id="vZip" class="tool" data-icon="download" title="Save everything as a ZIP file">Export ZIP</button>
+            <button id="vAi" class="tool primary" data-icon="spark" title="AI assistant: analyse and reconstruct this program (Ctrl+I)">AI assistant</button>
+          </div>
+        </div>
+        <div class="workspace">
+          <div id="treePane">
+            <div class="filter-wrap">
+              <span data-icon="search"></span>
+              <input id="filter" type="search" placeholder="Go to file  (Ctrl+P)" spellcheck="false" />
+            </div>
+            <div id="tree"></div>
+          </div>
+          <div id="codePane">
+            <div class="code-bar">
+              <span id="crumb">No file selected</span>
+              <span class="code-actions">
+                <button id="copyBtn" class="tool subtle" data-icon="copy" disabled>Copy</button>
+                <button id="revealBtn" class="tool subtle" data-icon="external" disabled>Show in folder</button>
+              </span>
+            </div>
+            <div id="codeScroll">
+              <div id="codeWrap"><pre id="gutter"></pre><pre id="code"><code class="hljs"></code></pre></div>
+            </div>
+          </div>
+          <aside id="aiPane" class="hidden">
+            <div class="ai-head">
+              <span class="ai-title"><span data-icon="spark"></span>AI assistant</span>
+              <span class="ai-head-actions">
+                <button id="aiNew" class="tool subtle" data-icon="plus" title="New conversation"></button>
+                <button id="aiGear" class="tool subtle" data-icon="gear" title="Assistant settings: account and model"></button>
+                <button id="aiClose" class="tool subtle" data-icon="x" title="Close"></button>
+              </span>
+            </div>
+            <div id="aiSignedOut" class="ai-signedout hidden">
+              <span>Sign in or add an API key to use the assistant.</span>
+              <button id="aiSetup" class="tool primary" data-icon="user">Set up</button>
+            </div>
+            <div class="ai-actions">
+              <button id="aiReconstruct" class="tool" data-icon="box" title="Analyse the whole output and write clean source code into the ai/ folder">Reconstruct program</button>
+              <button id="aiExplain" class="tool" data-icon="search" title="Explain the file open in the viewer">Explain file</button>
+              <button id="aiRewrite" class="tool" data-icon="refresh" title="Rewrite the open file with real names and comments">Rewrite file</button>
+            </div>
+            <div id="aiMessages"></div>
+            <div id="aiStatus" class="ai-status"></div>
+            <div class="ai-compose">
+              <textarea id="aiInput" rows="3" placeholder="Ask about this program… (Enter to send, Shift+Enter for a new line)" spellcheck="false"></textarea>
+              <div class="ai-compose-bar">
+                <span id="aiCost" class="ai-cost"></span>
+                <button id="aiStop" class="tool hidden" data-icon="stop">Stop</button>
+                <button id="aiSendBtn" class="tool primary" data-icon="send">Send</button>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <footer id="statusbar">
+    <span class="sb-item">Output</span>
+    <button id="outputPath" class="sb-link" title="Open the output folder"></button>
+    <button id="changeOutput" class="sb-link subtle">Change…</button>
+    <span class="sb-spacer"></span>
+    <span id="sbStatus" class="sb-item">Ready</span>
+  </footer>
+
+  <section id="settingsView" class="settings hidden" role="dialog" aria-modal="true" aria-labelledby="setHeading">
+    <nav class="set-nav" aria-label="Settings sections">
+      <h1 id="setHeading" class="set-heading">Settings</h1>
+      <button class="set-tab active" data-sec="general" data-icon="sliders">General</button>
+      <button class="set-tab" data-sec="appearance" data-icon="palette">Appearance</button>
+      <button class="set-tab" data-sec="accuracy" data-icon="target">Decompilers</button>
+      <button class="set-tab" data-sec="websites" data-icon="globe">Websites</button>
+      <button class="set-tab" data-sec="ai" data-icon="spark">AI assistant</button>
+      <button class="set-tab" data-sec="tools" data-icon="box">Tools</button>
+      <button class="set-tab" data-sec="about" data-icon="info">About</button>
+      <div class="set-nav-foot">
+        <span id="setSaved" class="set-saved" aria-live="polite"></span>
+        <button id="setClose" class="tool">Done <kbd>Esc</kbd></button>
+      </div>
+    </nav>
+
+    <div id="setBody" class="set-body">
+      <!-- General -->
+      <section class="set-sec" data-sec="general">
+        <h2>General</h2>
+        <div class="set-card">
+          <div class="set-row">
+            <div class="set-text"><div class="set-label">Output folder</div><div id="setOutPath" class="set-desc mono"></div></div>
+            <div class="set-ctl"><button id="setOutOpen" class="tool">Open</button><button id="setOutChange" class="tool">Change…</button></div>
+          </div>
+          <label class="set-row">
+            <div class="set-text"><div class="set-label">Notify me when a job finishes</div><div class="set-desc">A Windows notification while the app is in the background.</div></div>
+            <div class="set-ctl"><span class="switch"><input type="checkbox" data-set="notify" /><span></span></span></div>
+          </label>
+          <label class="set-row">
+            <div class="set-text"><div class="set-label">Open the overview first</div><div class="set-desc">Show README.md or BUILD.md when a result opens.</div></div>
+            <div class="set-ctl"><span class="switch"><input type="checkbox" data-set="autoReadme" /><span></span></span></div>
+          </label>
+        </div>
+      </section>
+
+      <!-- Appearance -->
+      <section class="set-sec" data-sec="appearance">
+        <h2>Appearance</h2>
+        <div class="set-card">
+          <div class="set-row">
+            <div class="set-text"><div class="set-label">Theme</div><div class="set-desc">System follows the Windows setting.</div></div>
+            <div class="set-ctl">
+              <div class="segmented" role="radiogroup" data-set-radio="theme">
+                <button role="radio" data-value="dark">Dark</button><button role="radio" data-value="light">Light</button><button role="radio" data-value="system">System</button>
+              </div>
+            </div>
+          </div>
+          <div class="set-row">
+            <div class="set-text"><div class="set-label">Code font size</div><div class="set-desc">Size of the code in the viewer.</div></div>
+            <div class="set-ctl"><input type="range" min="10" max="20" step="1" data-set="fontSize" /><span id="setFontVal" class="set-val"></span></div>
+          </div>
+          <label class="set-row">
+            <div class="set-text"><div class="set-label">Wrap long lines</div><div class="set-desc">Fold lines to the window width instead of scrolling sideways (line numbers are hidden).</div></div>
+            <div class="set-ctl"><span class="switch"><input type="checkbox" data-set="wrapLines" /><span></span></span></div>
+          </label>
+        </div>
+      </section>
+
+      <!-- Accuracy -->
+      <section class="set-sec" data-sec="accuracy">
+        <h2>Decompilers</h2>
+        <p class="set-intro">Compiled programs lose their names, comments and layout. When a program still points to its original source or debug symbols, DropDecompiler fetches them, so the result matches what its authors wrote.</p>
+        <h3>Original source</h3>
+        <div class="set-card">
+          <label class="set-row">
+            <div class="set-text"><div class="set-label">Download published original source</div><div class="set-desc">Exact source files when the program links to them: .NET Source Link (GitHub, GitLab, Azure DevOps…), Java libraries on Maven Central, and website source maps (including unlinked <code>.map</code> files). Saved in <code>original-source/</code> or <code>sources/</code>.</div></div>
+            <div class="set-ctl"><span class="switch"><input type="checkbox" data-set="originalSources" /><span></span></span></div>
+          </label>
+          <label class="set-row">
+            <div class="set-text"><div class="set-label">Download debug symbols</div><div class="set-desc">Gets a program's PDB from the Microsoft and NuGet symbol servers: real function names and types for native code, original local variable names for .NET. Sends the program's debug ID to those servers.</div></div>
+            <div class="set-ctl"><span class="switch"><input type="checkbox" data-set="symbols" /><span></span></span></div>
+          </label>
+        </div>
+        <h3>Native code (Ghidra)</h3>
+        <div class="set-card">
+          <label class="set-row">
+            <div class="set-text"><div class="set-label">Thorough analysis</div><div class="set-desc">Extra analyzers recover each function's real parameters and return type. Noticeably slower on big programs.</div></div>
+            <div class="set-ctl"><span class="switch"><input type="checkbox" data-set="thoroughNative" /><span></span></span></div>
+          </label>
+          <div class="set-row">
+            <div class="set-text"><div class="set-label">Time limit per function</div><div class="set-desc">Functions that take longer are shown as assembly instead of C.</div></div>
+            <div class="set-ctl"><input type="number" min="5" max="3600" step="5" data-set="ghidraTimeout" class="set-num" /><span class="set-unit">seconds</span></div>
+          </div>
+        </div>
+        <h3>iOS apps</h3>
+        <div class="set-card">
+          <div class="set-row static">
+            <div class="set-text"><div class="set-label">Headers, Swift interfaces and report</div><div class="set-desc">Always on: Objective-C headers of every class (class-dump), Swift types with their properties, decoded plists, strings and interface files, entitlements, signing and a security report.</div></div>
+          </div>
+          <label class="set-row">
+            <div class="set-text"><div class="set-label">Decompile the app's code</div><div class="set-desc">Run Ghidra on the app's executable for pseudo-C of every function, named after its Objective-C/Swift methods. Can take 10+ minutes for big apps.</div></div>
+            <div class="set-ctl"><span class="switch"><input type="checkbox" data-set="iosCode" /><span></span></span></div>
+          </label>
+        </div>
+        <h3>Android</h3>
+        <div class="set-card">
+          <div class="set-row static">
+            <div class="set-text"><div class="set-label">Original names from mapping files</div><div class="set-desc">Always on: a ProGuard/R8 <code>mapping.txt</code> next to the app (or the one inside an <code>.aab</code>) restores the original class, method and field names. Kotlin names are restored from the app's metadata.</div></div>
+          </div>
+          <label class="set-row">
+            <div class="set-text"><div class="set-label">Readable names for obfuscated code</div><div class="set-desc">Without a mapping file, renames short obfuscated names (a, b, c…) to unique readable ones. They are not the original names.</div></div>
+            <div class="set-ctl"><span class="switch"><input type="checkbox" data-set="androidDeobf" /><span></span></span></div>
+          </label>
+        </div>
+        <h3>Rebuilding</h3>
+        <div class="set-card">
+          <label class="set-row">
+            <div class="set-text"><div class="set-label">Test-build the result</div><div class="set-desc">.NET: build the solution and fix known decompiler mistakes. Java: recompile into a working JAR. Turn off for faster results.</div></div>
+            <div class="set-ctl"><span class="switch"><input type="checkbox" data-set="verifyBuild" /><span></span></span></div>
+          </label>
+        </div>
+      </section>
+
+      <!-- Websites -->
+      <section class="set-sec" data-sec="websites">
+        <h2>Websites</h2>
+        <div class="set-card">
+          <div class="set-row">
+            <div class="set-text"><div class="set-label">Pages to visit per link</div><div class="set-desc">Links on the same site are followed up to this many pages. robots.txt is respected for every page after the first.</div></div>
+            <div class="set-ctl"><input type="number" min="1" max="1000" step="1" data-set="webMaxPages" class="set-num" /><span class="set-unit">pages</span></div>
+          </div>
+          <div class="set-row static">
+            <div class="set-text"><div class="set-label">Privacy</div><div class="set-desc">Sites open in a hidden browser with its own empty session: none of your cookies or logins are used, and downloads, pop-ups and permission requests are refused.</div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- AI -->
+      <section class="set-sec" data-sec="ai">
+        <h2>AI assistant</h2>
+        <h3>Account</h3>
+        <div class="set-card">
+          <div class="set-row">
+            <div class="set-text"><div class="set-label">Anthropic account</div><div id="aiLoginState" class="set-desc"></div></div>
+            <div class="set-ctl"><button id="aiLogin" class="tool primary" data-icon="user">Sign in with Anthropic</button><button id="aiLogout" class="tool hidden">Sign out</button></div>
+          </div>
+          <div class="set-row static">
+            <div class="set-text"><div class="set-desc">Opens your browser to sign in to your Anthropic Console account: no key to copy. Usage is billed to that account. Claude Pro/Max chat subscriptions can only be used in Anthropic's own apps.</div></div>
+          </div>
+          <div class="set-row">
+            <div class="set-text"><div class="set-label">Or use an API key</div><div class="set-desc">Create one on <button id="aiKeyLink" class="link">console.anthropic.com</button>. Stored encrypted on this PC. <span id="aiKeyState"></span> <button id="aiKeyRemove" class="link hidden">Remove saved key</button></div></div>
+            <div class="set-ctl"><input id="aiKey" type="password" class="set-input" placeholder="sk-ant-…" spellcheck="false" autocomplete="off" /><button id="aiKeySave" class="tool">Save</button></div>
+          </div>
+        </div>
+        <h3>Behaviour</h3>
+        <div class="set-card">
+          <div class="set-row">
+            <div class="set-text"><div class="set-label">Model</div><div class="set-desc">Opus is the most capable; Sonnet and Haiku cost less.</div></div>
+            <div class="set-ctl"><select id="aiModel" class="set-select"></select></div>
+          </div>
+          <label class="set-row">
+            <div class="set-text"><div class="set-label">Reconstruct automatically</div><div class="set-desc">Start “Reconstruct program” as soon as a file is decompiled. Each run is billed.</div></div>
+            <div class="set-ctl"><span class="switch"><input id="aiAuto" type="checkbox" /><span></span></span></div>
+          </label>
+        </div>
+      </section>
+
+      <!-- Tools -->
+      <section class="set-sec" data-sec="tools">
+        <h2>Tools</h2>
+        <p class="set-intro">Decompilers and runtimes are downloaded the first time they are needed. Remove one to free space; it comes back when needed.</p>
+        <div id="setTools" class="set-card"></div>
+        <div class="set-actions"><button id="setToolsOpen" class="tool" data-icon="folder">Open tools folder</button><span id="setToolsTotal" class="set-unit"></span></div>
+      </section>
+
+      <!-- About -->
+      <section class="set-sec" data-sec="about">
+        <h2>About</h2>
+        <div class="set-card">
+          <div class="set-row static"><div class="set-text"><div class="set-label">DropDecompiler</div><div id="setVersion" class="set-desc"></div></div></div>
+          <div class="set-row static"><div class="set-text"><div class="set-label">Shortcuts</div><div class="set-desc"><kbd>Ctrl</kbd>+<kbd>O</kbd> open files · <kbd>Ctrl</kbd>+<kbd>V</kbd> paste a website link · <kbd>Ctrl</kbd>+<kbd>P</kbd> go to file · <kbd>Ctrl</kbd>+<kbd>I</kbd> AI assistant · <kbd>Ctrl</kbd>+<kbd>,</kbd> settings</div></div></div>
+        </div>
+      </section>
+    </div>
+  </section>
+
+  <div id="dropOverlay" class="hidden"><div class="drop-card"><span data-icon="upload"></span>Release to decompile</div></div>
+  <div id="toast" class="hidden"></div>
+
+  <script src="../node_modules/@highlightjs/cdn-assets/highlight.min.js"></script>
+  <script src="icons.js"></script>
+  <script src="renderer.js"></script>
+</body>
+</html>

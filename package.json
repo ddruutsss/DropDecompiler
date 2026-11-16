@@ -1,0 +1,78 @@
+{
+  "name": "drop-decompiler",
+  "productName": "DropDecompiler",
+  "version": "1.6.0",
+  "description": "Drop a program, an app or a website link and get its source code back: .NET, Java, Android, iOS, native C/C++, Python, Electron, Lua and more, with an AI assistant that rebuilds and verifies it.",
+  "keywords": [
+    "decompiler",
+    "reverse-engineering",
+    "ghidra",
+    "ilspy",
+    "jadx",
+    "vineflower",
+    "ios",
+    "ipa",
+    "apk",
+    "class-dump",
+    "swift",
+    "pyinstaller",
+    "electron",
+    "matching-decompilation",
+    "claude"
+  ],
+  "author": "DropDecompiler",
+  "license": "MIT",
+  "main": "main.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node launch.js",
+    "check": "node scripts/check.js",
+    "dist": "electron-builder --win portable",
+    "dist:setup": "electron-builder --win nsis"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.8.0",
+    "@highlightjs/cdn-assets": "^11.12.0",
+    "adm-zip": "^0.6.1",
+    "js-beautify": "^1.15.4"
+  },
+  "devDependencies": {
+    "electron": "^45.2.2",
+    "electron-builder": "^26.18.0"
+  },
+  "build": {
+    "appId": "app.dropdecompiler",
+    "productName": "DropDecompiler",
+    "copyright": "Copyright (c) 2026 DropDecompiler contributors",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "package.json",
+      "src/**/*",
+      "renderer/**/*",
+      "assets/**/*"
+    ],
+    "win": {
+      "target": [
+        "portable"
+      ],
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "DropDecompiler",
+      "artifactName": "DropDecompiler-Setup-${version}.exe"
+    },
+    "portable": {
+      "artifactName": "DropDecompiler-${version}.exe"
+    }
+  }
+}

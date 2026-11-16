@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- DropDecompiler mark: a drop (a file dropped in) with code brackets cut out of it. -->
+  <path fill="#E9A23B" d="M32 4.5c-1.1 0-2.1.5-2.8 1.4C24.4 12 13 27.3 13 39a19 19 0 0 0 38 0C51 27.3 39.6 12 34.8 5.9 34.1 5 33.1 4.5 32 4.5Z"/>
+  <g fill="none" stroke="#17191D" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M27.5 31.5 21 39l6.5 7.5"/>
+    <path d="M36.5 31.5 43 39l-6.5 7.5"/>
+  </g>
+</svg>
